@@ -1,3 +1,5 @@
+"""Paged KV cache 写入，以及 prefill/decode 两条 Attention 路径。"""
+
 import torch
 from torch import nn
 import triton
@@ -18,8 +20,10 @@ def store_kvcache_kernel(
     slot_mapping_ptr,
     D: tl.constexpr,
 ):
+    # 每个 Triton program 处理一枚 token 的全部 local KV heads。
     idx = tl.program_id(0)
     slot = tl.load(slot_mapping_ptr + idx)
+    # CUDA Graph padding 请求使用 slot=-1，必须跳过写入。
     if slot == -1: return
     key_offsets = idx * key_stride + tl.arange(0, D)
     value_offsets = idx * value_stride + tl.arange(0, D)
@@ -31,6 +35,12 @@ def store_kvcache_kernel(
 
 
 def store_kvcache(key: torch.Tensor, value: torch.Tensor, k_cache: torch.Tensor, v_cache: torch.Tensor, slot_mapping: torch.Tensor):
+    """把连续的本轮 K/V scatter 到 paged cache 的任意物理 slots。
+
+    key/value: [num_new_tokens, local_kv_heads, head_dim]
+    cache: [num_blocks, block_size, local_kv_heads, head_dim]
+    slot_mapping: [num_new_tokens]
+    """
     N, num_heads, head_dim = key.shape
     D = num_heads * head_dim
     assert key.stride(-1) == 1 and value.stride(-1) == 1
@@ -41,6 +51,7 @@ def store_kvcache(key: torch.Tensor, value: torch.Tensor, k_cache: torch.Tensor,
 
 
 class Attention(nn.Module):
+    """不持有 projection 权重，只负责缓存读写和 FlashAttention 调用。"""
 
     def __init__(
         self,
@@ -54,21 +65,32 @@ class Attention(nn.Module):
         self.head_dim = head_dim
         self.scale = scale
         self.num_kv_heads = num_kv_heads
+        # ModelRunner.allocate_kv_cache() 会在初始化后把它们替换为每层 cache view。
         self.k_cache = self.v_cache = torch.tensor([])
 
     def forward(self, q: torch.Tensor, k: torch.Tensor, v: torch.Tensor):
+        """执行 GQA/MHA attention。
+
+        q: [num_query_tokens, local_q_heads, head_dim]
+        k/v: [num_query_tokens, local_kv_heads, head_dim]
+        输出保持 q 的 token/head 结构。
+        """
         context = get_context()
         k_cache, v_cache = self.k_cache, self.v_cache
         if k_cache.numel() and v_cache.numel():
+            # 先将本轮产生的 K/V 写入 cache，decode attention 随后即可读取完整上下文。
             store_kvcache(k, v, k_cache, v_cache, context.slot_mapping)
         if context.is_prefill:
             if context.block_tables is not None:    # prefix cache
+                # query 是新 suffix；key/value 改为 paged cache，由 block_table 定位旧前缀和新 suffix。
                 k, v = k_cache, v_cache
+            # varlen 接口利用 cu_seqlens 在同一个扁平 tensor 中分隔不同 sequence。
             o = flash_attn_varlen_func(q, k, v,
                                        max_seqlen_q=context.max_seqlen_q, cu_seqlens_q=context.cu_seqlens_q,
                                        max_seqlen_k=context.max_seqlen_k, cu_seqlens_k=context.cu_seqlens_k,
                                        softmax_scale=self.scale, causal=True, block_table=context.block_tables)
         else:    # decode
+            # 每条 sequence 只有一个 query；历史 K/V 全部来自 paged cache。
             o = flash_attn_with_kvcache(q.unsqueeze(1), k_cache, v_cache,
                                         cache_seqlens=context.context_lens, block_table=context.block_tables, 
                                         softmax_scale=self.scale, causal=True)

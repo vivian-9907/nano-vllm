@@ -1,3 +1,5 @@
+"""面向用户的生成循环，以及 scheduler 与 GPU model runner 之间的编排。"""
+
 import atexit
 from dataclasses import fields
 from time import perf_counter
@@ -13,8 +15,10 @@ from nanovllm.engine.model_runner import ModelRunner
 
 
 class LLMEngine:
+    """Nano-vLLM 的控制面：tokenize、排队、逐 step 执行、整理输出。"""
 
     def __init__(self, model, **kwargs):
+        # 只把 Config 声明过的参数向下传递，其余 kwargs 在这个最小实现中忽略。
         config_fields = {field.name for field in fields(Config)}
         config_kwargs = {k: v for k, v in kwargs.items() if k in config_fields}
         config = Config(model, **config_kwargs)
@@ -22,6 +26,7 @@ class LLMEngine:
         self.ps = []
         self.events = []
         ctx = mp.get_context("spawn")
+        # TP 每个 rank 一个进程。rank 0 留在主进程中，其他 rank 等待共享内存命令。
         for i in range(1, config.tensor_parallel_size):
             event = ctx.Event()
             process = ctx.Process(target=ModelRunner, args=(config, i, event))
@@ -31,23 +36,30 @@ class LLMEngine:
         self.model_runner = ModelRunner(config, 0, self.events)
         self.tokenizer = AutoTokenizer.from_pretrained(config.model, use_fast=True)
         config.eos = self.tokenizer.eos_token_id
+        # ModelRunner warmup 后会把可用 KV block 数写回同一个 config 对象，
+        # 因此 Scheduler 此时才能创建大小正确的 BlockManager。
         self.scheduler = Scheduler(config)
         atexit.register(self.exit)
 
     def exit(self):
+        """通知所有 TP workers 退出并回收共享内存/NCCL 资源。"""
         self.model_runner.call("exit")
         del self.model_runner
         for p in self.ps:
             p.join()
 
     def add_request(self, prompt: str | list[int], sampling_params: SamplingParams):
+        """将字符串 tokenize，或直接接收 token IDs，然后加入 waiting queue。"""
         if isinstance(prompt, str):
             prompt = self.tokenizer.encode(prompt)
         seq = Sequence(prompt, sampling_params)
         self.scheduler.add(seq)
 
     def step(self):
+        """执行一次完整 engine step：schedule -> forward/sample -> commit。"""
         seqs, is_prefill = self.scheduler.schedule()
+        # 正数表示本轮 prefill token 数；负数的绝对值表示 decode sequence 数，
+        # generate() 借此分别估算两种阶段的瞬时吞吐。
         num_tokens = sum(seq.num_scheduled_tokens for seq in seqs) if is_prefill else -len(seqs)
         token_ids = self.model_runner.call("run", seqs, is_prefill)
         self.scheduler.postprocess(seqs, token_ids, is_prefill)
@@ -63,6 +75,10 @@ class LLMEngine:
         sampling_params: SamplingParams | list[SamplingParams],
         use_tqdm: bool = True,
     ) -> list[str]:
+        """同步离线生成：所有请求完成后才统一返回结果。
+
+        continuous batching 发生在内部 scheduler；这里没有在线请求持续到达或流式输出。
+        """
         pbar = tqdm(total=len(prompts), desc="Generating", dynamic_ncols=True, disable=not use_tqdm)
         if not isinstance(sampling_params, list):
             sampling_params = [sampling_params] * len(prompts)
@@ -71,6 +87,7 @@ class LLMEngine:
         outputs = {}
         prefill_throughput = decode_throughput = 0.
         while not self.is_finished():
+            # 每次循环恰好执行一个 prefill batch 或一个 decode batch。
             t = perf_counter()
             output, num_tokens = self.step()
             if num_tokens > 0:
