@@ -1,4 +1,6 @@
-# 推理服务
+# LLM 推理服务：PD 部署与调度
+
+> 导航：[00 基础知识地图](<./00 索引：LLM推理基础设施知识地图.md>)
 
 ## PD 部署一图看懂
 
@@ -14,6 +16,7 @@ flowchart LR
 
 - **TTFT**：从请求到首 token 的时间。
 - **ITL / TPOT**：连续两个输出 token 之间的时间。
+- **SLA**：服务级别协议，即系统承诺达到的可用性或延迟目标。
 
 > PD 混部/分离讨论“在哪些 GPU 上算”；混合 batching 讨论“同一次 forward 里一起算什么”。
 
@@ -27,7 +30,9 @@ flowchart LR
 
 ## 1. PD 混部：通用默认方式
 
-P/D 共用模型实例和 GPU。成熟引擎通常优先保证 Decode，再用剩余 token budget 执行 Prefill chunk：
+P/D 共用模型实例和 GPU，但“混部”本身不规定谁先调度。vLLM V1 等面向在线服务的混合调度器通常先保证 Decode，再用剩余 token budget 执行 Prefill chunk：
+
+Decode 每轮只生成 1 个 token，需要持续推进才能保持流式输出平滑；因此先放入本轮 Decode token，再将剩余预算分给 Prefill。
 
 ```mermaid
 flowchart LR
@@ -39,15 +44,16 @@ flowchart LR
 **优点**：部署简单、无需传输 KV Cache、P/D 动态共享 GPU。  
 **缺点**：P/D 争用 GPU，长 Prefill 可能抬高 Decode 尾延迟。
 
-nano-vLLM 也是 PD 混部，但实现更简单：
+> **尾延迟**是最慢那小部分请求的延迟，常用 P95/P99 衡量。长 Prefill 会延长某一轮 GPU 执行时间，使同批 Decode 请求的下一个 token 集体等待；平均 TPOT 可能变化不大，但 P95/P99 TPOT 会上升。
+
+nano-vLLM 也是 PD 混部，但采用 **Prefill-first 的分阶段调度**：
 
 ```text
-Step 1：纯 Prefill
-Step 2：纯 Prefill
-Step 3：纯 Decode
+本轮有可调度 Prefill  → 立即返回纯 Prefill batch
+本轮无可调度 Prefill → 才返回纯 Decode batch
 ```
 
-它支持 chunked prefill，但不把 Prefill chunk 和 Decode token 放进同一个 batch。
+它支持 chunked prefill，但不把 Prefill chunk 和 Decode token 放进同一个 batch。因此持续到来的新 Prefill 请求可能让已在生成的 Decode 请求等待，这是教学型简化实现与成熟在线调度器的一个关键差别。
 
 ## 2. PD 分离：大规模服务选项
 
@@ -67,7 +73,7 @@ P/D 可以独立选择并行策略、硬件数量和扩缩容比例：
 ```
 
 **优点**：Prefill 不干扰 Decode；TTFT 与 ITL 可独立优化。  
-**代价**：KV Cache 传输、双侧模型权重、路由和故障恢复更复杂，通常需要 NVLink、IB 或 RoCE。
+**代价**：KV Cache 传输、双侧模型权重、路由和故障恢复更复杂。同节点 P/D 可走 NVLink 或 PCIe P2P；跨节点高性能传输通常使用 IB/RoCE 上的 GPUDirect RDMA。硬件与网络路径见 [GPU 集群硬件与 RDMA 网络层级](<./00 GPU集群硬件与RDMA网络层级.md>)。
 
 vLLM、SGLang 都支持 PD 分离，但普通启动默认仍是统一引擎；PD 分离更多用于基础设施成熟的大规模集群。
 
@@ -82,6 +88,8 @@ vLLM、SGLang 都支持 PD 分离，但普通启动默认仍是统一引擎；PD
 ```
 
 前一 chunk 的 K/V 已进入 KV Cache，后一 chunk 只计算新 token，并读取历史 K/V。
+
+切分的目的不是减少 Prefill 总计算量，而是限制它单轮占用 GPU 的时间，避免一个长 prompt 长时间阻塞 Decode。
 
 - **混部**：缩短单次 Prefill 占用，给 Decode 留出预算。
 - **分离**：控制 P 节点显存和公平性，避免超长 prompt 独占节点。
