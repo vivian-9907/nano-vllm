@@ -4,7 +4,7 @@
 
 ## 这张卡片从哪里开始
 
-请求如何从 `example.py` 进入 Scheduler，以及 Prefill / Decode 怎么调度，见 [02 从 example.py 进入 nano-vLLM 调度循环](<./02 调用.md>)。
+请求如何从 `example.py` 进入 Scheduler，以及 Prefill / Decode 怎么调度，见 [01 从 example.py 进入 nano-vLLM 调度循环](<./01 从example.py进入nano-vLLM调度循环.md>)。
 
 本卡片从下面这行代码开始：
 

@@ -1,18 +1,33 @@
-# LLM 推理基础设施知识地图
+# nano-vLLM 学习与推理基础设施知识地图
 
-这组 `00` 卡片只负责建立推理服务的基础心智模型。遇到一个问题时，从本页定位专题，不必按文件名逐张翻找。
+这组文档按“源码调用 → 框架数据链路 → 推理生态 → 服务与硬件”组织。可以按编号顺序阅读，也可以从本页按问题定位专题。
 
 ## 按问题查卡片
 
 | 我想弄清的问题 | 先看哪张卡 | 关键词 |
 | --- | --- | --- |
-| 请求怎样进入服务，P/D 如何调度 | [LLM 推理服务：PD 部署与调度](<./00 LLM推理服务：PD部署与调度.md>) | client、API server、router、scheduler、Prefill、Decode、SLA、尾延迟 |
-| GPU、节点、机柜、交换机是什么层级 | [GPU 集群硬件与 RDMA 网络层级](<./00 GPU集群硬件与RDMA网络层级.md>) | GPU、CPU、DRAM、SSD、NIC/HCA、PCIe、NVLink、IB、RoCE、RDMA |
-| NIC 到交换机之间到底接了什么 | [GPU 集群网络物理层](<./00 GPU集群网络物理层：NIC、光模块与线缆.md>) | DAC、ACC、AOC、光模块、光纤、端口、距离 |
-| A100/H100/H200/B200 有什么区别 | [NVIDIA GPU 架构、芯片与量化格式速查](<./00 NVIDIA GPU架构、芯片与量化格式速查.md>) | Ampere、Hopper、Blackwell、HBM、L2、FP8、FP4、AWQ、GPTQ |
-| NVL72、NVSwitch、机架级 NVLink 是什么 | [NVL72：机架级 NVLink 系统](<./00 NVL72：机架级NVLink系统.md>) | GB200、GB300、NVLink Fabric、scale-up、scale-out、NVSwitch Tray |
+| `example.py` 怎样进入调度循环 | [从 example.py 进入 nano-vLLM 调度循环](<./01 从example.py进入nano-vLLM调度循环.md>) | LLMEngine、Sequence、Scheduler、Prefill、Decode |
+| Scheduler 的结果怎样进入 GPU Kernel | [推理框架与 Attention Kernel 的数据链路](<./02 推理框架与Attention Kernel的数据链路.md>) | ModelRunner、block table、slot mapping、FlashAttention |
+| 常见推理优化仓库分别位于哪一层 | [推理优化仓库分层卡片](<./03 推理优化仓库分层卡片.md>) | Engine、Kernel、KV 传输、集群控制面 |
+| 请求怎样进入服务，P/D 如何调度 | [LLM 推理服务：PD 部署与调度](<./04 LLM推理服务：PD部署与调度.md>) | client、API server、router、scheduler、Prefill、Decode、SLA、尾延迟 |
+| GPU、节点、机柜、交换机是什么层级 | [GPU 集群硬件与 RDMA 网络层级](<./06 GPU集群硬件与RDMA网络层级.md>) | GPU、CPU、DRAM、SSD、NIC/HCA、PCIe、NVLink、IB、RoCE、RDMA |
+| NIC 到交换机之间到底接了什么 | [GPU 集群网络物理层](<./07 GPU集群网络物理层：NIC、光模块与线缆.md>) | DAC、ACC、AOC、光模块、光纤、端口、距离 |
+| A100/H100/H200/B200 有什么区别 | [NVIDIA GPU 架构、芯片与量化格式速查](<./05 NVIDIA GPU架构、芯片与量化格式速查.md>) | Ampere、Hopper、Blackwell、HBM、L2、FP8、FP4、AWQ、GPTQ |
+| NVL72、NVSwitch、机架级 NVLink 是什么 | [NVL72：机架级 NVLink 系统](<./08 NVL72：机架级NVLink系统.md>) | GB200、GB300、NVLink Fabric、scale-up、scale-out、NVSwitch Tray |
 
-## 两条建议阅读路径
+## 三条建议阅读路径
+
+### 从 nano-vLLM 源码出发
+
+```text
+example.py 与 Scheduler
+  → ModelRunner 与 Attention Kernel 数据链路
+      → 推理优化仓库分层
+          → PD 部署与调度
+```
+
+适合当前项目的学习主线：先看单机引擎内部，再扩展到 Serving 和集群。
+
 
 ### 从 PD 推理服务出发
 
@@ -56,5 +71,5 @@ flowchart LR
 
 - **总览卡**回答“它是什么、位于哪一层、和相邻概念有什么关系”。
 - **专题卡**保留必要的数量级、路径图和官方资料，不堆实现代码。
-- nano-vllm 的具体类、函数和执行流程继续放在源码解读卡里，不塞进这些基础卡。
+- **源码解读卡**沿 `example.py → Scheduler → ModelRunner → Attention` 展开；基础设施卡负责服务、硬件和网络概念。
 

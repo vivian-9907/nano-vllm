@@ -1,6 +1,6 @@
 # LLM 推理服务：PD 部署与调度
 
-> 导航：[00 基础知识地图](<./00 索引：LLM推理基础设施知识地图.md>)
+> 导航：[文档索引](<./00 索引：LLM推理基础设施知识地图.md>)
 
 ## PD 部署一图看懂
 
@@ -73,7 +73,7 @@ P/D 可以独立选择并行策略、硬件数量和扩缩容比例：
 ```
 
 **优点**：Prefill 不干扰 Decode；TTFT 与 ITL 可独立优化。  
-**代价**：KV Cache 传输、双侧模型权重、路由和故障恢复更复杂。同节点 P/D 可走 NVLink 或 PCIe P2P；跨节点高性能传输通常使用 IB/RoCE 上的 GPUDirect RDMA。硬件与网络路径见 [GPU 集群硬件与 RDMA 网络层级](<./00 GPU集群硬件与RDMA网络层级.md>)。
+**代价**：KV Cache 传输、双侧模型权重、路由和故障恢复更复杂。同节点 P/D 可走 NVLink 或 PCIe P2P；跨节点高性能传输通常使用 IB/RoCE 上的 GPUDirect RDMA。硬件与网络路径见 [GPU 集群硬件与 RDMA 网络层级](<./06 GPU集群硬件与RDMA网络层级.md>)。
 
 vLLM、SGLang 都支持 PD 分离，但普通启动默认仍是统一引擎；PD 分离更多用于基础设施成熟的大规模集群。
 

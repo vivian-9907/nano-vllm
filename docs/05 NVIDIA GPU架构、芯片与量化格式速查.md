@@ -1,6 +1,6 @@
 # NVIDIA GPU 架构、芯片与量化格式速查
 
-> 导航：[00 基础知识地图](<./00 索引：LLM推理基础设施知识地图.md>)
+> 导航：[文档索引](<./00 索引：LLM推理基础设施知识地图.md>)
 
 > **H200 仍属于 Hopper，B200 才属于 Blackwell。GB200 是 Grace CPU + B200 GPU 的 Superchip，NVL72 是机架级系统拓扑。**
 

@@ -14,7 +14,7 @@ Scheduler.schedule()
     → 交给 ModelRunner
 ```
 
-`ModelRunner` 如何把这些 Python 状态变成 `input_ids`、`slot_mapping`、`block_tables` 和 FlashAttention metadata，放在 [01 推理框架与 Attention Kernel 的数据链路](<./01 推理框架与Attention Kernel的数据链路.md>)。
+`ModelRunner` 如何把这些 Python 状态变成 `input_ids`、`slot_mapping`、`block_tables` 和 FlashAttention metadata，放在 [02 推理框架与 Attention Kernel 的数据链路](<./02 推理框架与Attention Kernel的数据链路.md>)。
 
 ## 1. 从 `example.py` 进入调度循环
 
@@ -416,7 +416,7 @@ num_cached_tokens += scheduled         将“本轮计划”推进为“已写�
 num_scheduled_tokens = 0               清空本轮计划，等待下次调度
 ```
 
-`hash_blocks()` 必须先执行，因为它需要更新前的 `num_cached_tokens` 与本轮 `num_scheduled_tokens`，才能界定“本轮新写满的 block”。物理 K/V 写入和 block hash 的具体数据链路见 [01 推理框架与 Attention Kernel 的数据链路](<./01 推理框架与Attention Kernel的数据链路.md>)。
+`hash_blocks()` 必须先执行，因为它需要更新前的 `num_cached_tokens` 与本轮 `num_scheduled_tokens`，才能界定“本轮新写满的 block”。物理 K/V 写入和 block hash 的具体数据链路见 [02 推理框架与 Attention Kernel 的数据链路](<./02 推理框架与Attention Kernel的数据链路.md>)。
 
 ### 处理采样结果
 
@@ -514,4 +514,4 @@ postprocess    把 GPU 执行结果提交回 Sequence 和 Scheduler
 4. 新采样 token 要到下一轮 Decode 才产生自己的 K/V。
 5. KV cache 不足时，当前实现释放整条 Sequence 的 KV 并重新 Prefill，不做 CPU swap。
 
-下一张卡片是 [01 推理框架与 Attention Kernel 的数据链路](<./01 推理框架与Attention Kernel的数据链路.md>)：从 `Scheduler.schedule()` 的返回值接着往下，看 `num_cached_tokens`、`num_scheduled_tokens` 和 `block_table` 如何变成 `input_ids`、`positions`、`slot_mapping` 和 FlashAttention metadata。
+下一张卡片是 [02 推理框架与 Attention Kernel 的数据链路](<./02 推理框架与Attention Kernel的数据链路.md>)：从 `Scheduler.schedule()` 的返回值接着往下，看 `num_cached_tokens`、`num_scheduled_tokens` 和 `block_table` 如何变成 `input_ids`、`positions`、`slot_mapping` 和 FlashAttention metadata。

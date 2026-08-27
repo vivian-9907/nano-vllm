@@ -1,6 +1,6 @@
 # GPU 集群硬件与 RDMA 网络层级
 
-> 导航：[00 基础知识地图](<./00 索引：LLM推理基础设施知识地图.md>)
+> 导航：[文档索引](<./00 索引：LLM推理基础设施知识地图.md>)
 
 > 先分清四层：**GPU、NIC 和交换机是设备，PCIe/NVLink 主要是本机互连，InfiniBand/Ethernet 是跨机网络，RDMA 是通信机制。**它们会组成一条数据路径，但不是同一层概念。
 
@@ -106,7 +106,7 @@ NIC 数量的意义主要是：
 
 > NIC 多不代表应用一定线性变快：还受 PCIe 拓扑、交换机上行带宽、网络拥塞、通信库和负载均衡影响。一张 NIC 也可能有多个网络端口，因此“NIC 数”和“端口数”不一定相同。
 
-NIC/HCA 到交换机之间还有物理层：可以使用 DAC/ACC 铜缆、AOC，或“光模块 + 光纤”。RDMA 不规定必须使用哪种介质，详见 [GPU 集群网络物理层：NIC、光模块与线缆](<./00 GPU集群网络物理层：NIC、光模块与线缆.md>)。
+NIC/HCA 到交换机之间还有物理层：可以使用 DAC/ACC 铜缆、AOC，或“光模块 + 光纤”。RDMA 不规定必须使用哪种介质，详见 [GPU 集群网络物理层：NIC、光模块与线缆](<./07 GPU集群网络物理层：NIC、光模块与线缆.md>)。
 
 ## 2. 设备、链路、网络和机制
 
@@ -166,7 +166,7 @@ GPUDirect RDMA 不是“GPU 绕过网络直接访问远端 GPU”：数据仍要
 
 以 H100 SXM 为具体参考：单 GPU 有 80 GB HBM、约 3.35 TB/s 显存带宽。这是一个产品示例，不是所有 GPU 的固定规格。
 
-H100/H200/B200 等型号与 Hopper/Blackwell 架构、原生低精度格式和 AWQ/GPTQ 软件量化的关系，见 [NVIDIA GPU 架构、芯片与量化格式速查](<./00 NVIDIA GPU架构、芯片与量化格式速查.md>)。
+H100/H200/B200 等型号与 Hopper/Blackwell 架构、原生低精度格式和 AWQ/GPTQ 软件量化的关系，见 [NVIDIA GPU 架构、芯片与量化格式速查](<./05 NVIDIA GPU架构、芯片与量化格式速查.md>)。
 
 ### 模型加载的常见简化路径
 
@@ -232,7 +232,7 @@ flowchart TB
 
 ### GB200/GB300 NVL72：NVSwitch 扩展到机架级
 
-NVL72 是“72 个 GPU 组成一个机架级 NVLink 域”的系统形态，不是 GPU 型号。GB200、GB300 和 Vera Rubin 都有 NVL72 形态；它属于 NVIDIA 顶级 scale-up 路线，但高成本、高功耗、液冷和整柜运维使它还不是普通 GPU 集群的通用配置。详见 [NVL72：机架级 NVLink 系统](<./00 NVL72：机架级NVLink系统.md>)。
+NVL72 是“72 个 GPU 组成一个机架级 NVLink 域”的系统形态，不是 GPU 型号。GB200、GB300 和 Vera Rubin 都有 NVL72 形态；它属于 NVIDIA 顶级 scale-up 路线，但高成本、高功耗、液冷和整柜运维使它还不是普通 GPU 集群的通用配置。详见 [NVL72：机架级 NVLink 系统](<./08 NVL72：机架级NVLink系统.md>)。
 
 > **NVSwitch ≠ ToR/Spine 网络交换机。**它们都叫 switch，但连接对象、协议和作用范围不同。
 

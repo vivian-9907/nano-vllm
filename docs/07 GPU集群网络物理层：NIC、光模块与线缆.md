@@ -1,6 +1,6 @@
 # GPU 集群网络物理层：NIC、光模块与线缆
 
-> 导航：[00 基础知识地图](<./00 索引：LLM推理基础设施知识地图.md>)
+> 导航：[文档索引](<./00 索引：LLM推理基础设施知识地图.md>)
 
 > **NIC/RNIC/HCA 是网络设备，光模块负责光电转换，光纤/铜缆是传输介质。**普通 NIC 不一定支持 RDMA；支持 RDMA 的网卡才称 RNIC，InfiniBand 适配器通常称 HCA。
 
@@ -82,7 +82,7 @@ RDMA 是远程内存访问机制，InfiniBand 或 Ethernet+RoCE 是网络承载�
 
 > NIC 侧光模块属于 Ethernet/InfiniBand 网络物理层；NVLink/NVSwitch 是 GPU 互连 Fabric。两者可能共同出现在一台服务器或一个机架中，但不是同一条链路。
 
-完整的节点、交换机与 GPU 数据路径见 [GPU 集群硬件与 RDMA 网络层级](<./00 GPU集群硬件与RDMA网络层级.md>)。
+完整的节点、交换机与 GPU 数据路径见 [GPU 集群硬件与 RDMA 网络层级](<./06 GPU集群硬件与RDMA网络层级.md>)。
 
 ## NVIDIA 官方资料
 
